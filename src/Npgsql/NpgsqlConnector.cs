@@ -229,6 +229,8 @@ namespace Npgsql
         /// </summary>
         internal const int MinimumInternalCommandTimeout = 3;
 
+        static readonly System.Text.RegularExpressions.Regex VersionRegexp = new System.Text.RegularExpressions.Regex(@"(?<major>\d+)\.?(?<minor>\d+)?\.{0,1}(?<build>\d+)?\.?(?<revision>\d+)?", System.Text.RegularExpressions.RegexOptions.Compiled | System.Text.RegularExpressions.RegexOptions.Singleline);
+
         #endregion
 
         #region Reusable Message Objects
@@ -1887,19 +1889,33 @@ namespace Npgsql
 
         void ProcessServerVersion(string value)
         {
-            var versionString = value.Trim();
-            for (var idx = 0; idx != versionString.Length; ++idx)
+            var match = VersionRegexp.Match(value);
+            int iMajor, iMinor, iBuild, iRevision;
+            if (match.Success)
             {
-                var c = value[idx];
-                if (!char.IsDigit(c) && c != '.')
+                var major = match.Groups["major"].Value;
+                iMajor = Convert.ToInt32(major);
+                var minor = match.Groups["minor"].Value;
+                iMinor = string.IsNullOrEmpty(minor) ? -1 : Convert.ToInt32(minor);
+                var build = match.Groups["build"].Value;
+                iBuild = string.IsNullOrEmpty(build) ? -1 : Convert.ToInt32(build);
+                var revision = match.Groups["revision"].Value;
+                iRevision = string.IsNullOrEmpty(revision) ? -1 : Convert.ToInt32(revision);
+
+                if (iRevision >= 0)
                 {
-                    versionString = versionString.Substring(0, idx);
-                    break;
+                    ServerVersion = new Version(iMajor, iMinor, iBuild, iRevision);
+                    return;
                 }
+
+                if (iBuild >= 0)
+                {
+                    ServerVersion = new Version(iMajor, iMinor, iBuild);
+                    return;
+                }
+
+                ServerVersion = new Version(iMajor, iMinor < 0 ? 0 : iMinor);
             }
-            if (!versionString.Contains('.'))
-                versionString += ".0";
-            ServerVersion = new Version(versionString);
         }
 
         /// <summary>

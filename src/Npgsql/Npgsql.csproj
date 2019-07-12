@@ -67,5 +67,7 @@
     <DebugSymbols>true</DebugSymbols>
     <Optimize>false</Optimize>
   </PropertyGroup>
-
+  <Target Name="GetTargetPath" Outputs="" />
+  <Target Name="GetNativeManifest" Outputs="" />
+  <Target Name="GenerateFileManifest" Outputs="" />
 </Project>
