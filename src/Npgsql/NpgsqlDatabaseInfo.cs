@@ -42,6 +42,7 @@ namespace Npgsql
 
         internal static ConcurrentDictionary<string, NpgsqlDatabaseInfo> Cache
             = new ConcurrentDictionary<string, NpgsqlDatabaseInfo>();
+        static readonly System.Text.RegularExpressions.Regex VersionRegexp = new System.Text.RegularExpressions.Regex(@"(?<major>\d+)\.?(?<minor>\d+)?\.{0,1}(?<build>\d+)?\.?(?<revision>\d+)?", System.Text.RegularExpressions.RegexOptions.Compiled | System.Text.RegularExpressions.RegexOptions.Singleline);
 
         static readonly List<INpgsqlDatabaseInfoFactory> Factories = new List<INpgsqlDatabaseInfoFactory>
         {
@@ -212,23 +213,51 @@ namespace Npgsql
 
         /// <summary>
         /// Parses a PostgreSQL server version (e.g. 10.1, 9.6.3) and returns a CLR Version.
+        /// поменяли, т. к. синергия дописывает в конец после точки слово SYNERGY
         /// </summary>
         protected static Version ParseServerVersion(string value)
         {
-            var versionString = value.Trim();
-            for (var idx = 0; idx != versionString.Length; ++idx)
+            var match = VersionRegexp.Match(value);
+            int iMajor, iMinor, iBuild, iRevision;
+            if(match.Success)
             {
-                var c = value[idx];
-                if (!char.IsDigit(c) && c != '.')
+                var major = match.Groups["major"].Value;
+                iMajor = Convert.ToInt32(major);
+                var minor = match.Groups["minor"].Value;
+                iMinor = string.IsNullOrEmpty(minor) ? -1 : Convert.ToInt32(minor);
+                var build = match.Groups["build"].Value;
+                iBuild = string.IsNullOrEmpty(build) ? -1 : Convert.ToInt32(build);
+                var revision = match.Groups["revision"].Value;
+                iRevision = string.IsNullOrEmpty(revision) ? -1 : Convert.ToInt32(revision);
+                if (iRevision >= 0)
                 {
-                    versionString = versionString.Substring(0, idx);
-                    break;
+                    return new Version(iMajor, iMinor, iBuild, iRevision);                    
                 }
+
+                if (iBuild >= 0)
+                {
+                    return new Version(iMajor, iMinor, iBuild);                   
+                }
+                return new Version(iMajor, iMinor < 0 ? 0 : iMinor);
             }
-            if (!versionString.Contains("."))
-                versionString += ".0";
-            return new Version(versionString);
+            return new Version(9, 6);
         }
+        //protected static Version ParseServerVersion(string value)
+        //{
+        //    var versionString = value.Trim();
+        //    for (var idx = 0; idx != versionString.Length; ++idx)
+        //    {
+        //        var c = value[idx];
+        //        if (!char.IsDigit(c) && c != '.')
+        //        {
+        //            versionString = versionString.Substring(0, idx);
+        //            break;
+        //        }
+        //    }
+        //    if (!versionString.Contains("."))
+        //        versionString += ".0";
+        //    return new Version(versionString);
+        //}
 
         #endregion Misc
 
